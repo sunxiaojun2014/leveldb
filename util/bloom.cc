@@ -40,7 +40,7 @@ class BloomFilterPolicy : public FilterPolicy {
     // by enforcing a minimum bloom filter length.
     if (bits < 64) bits = 64;
 
-    size_t bytes = (bits + 7) / 8;
+    size_t bytes = (bits + 7) / 8;//?
     bits = bytes * 8;
 
     const size_t init_size = dst->size();

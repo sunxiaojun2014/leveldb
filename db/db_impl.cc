@@ -1160,45 +1160,51 @@ Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {
 }
 
 Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
+	//每次写入是
   Writer w(&mutex_);
   w.batch = my_batch;
   w.sync = options.sync;
   w.done = false;
 
-  MutexLock l(&mutex_);
-  writers_.push_back(&w);
+  MutexLock l(&mutex_);//锁定互斥锁
+  writers_.push_back(&w);//将Write w放到一个队列中
+	//如果w还不是队列中的第一个,等待信号量(对于队列中的Write处理要求是单线程的,因此每次都要追加log)
   while (!w.done && &w != writers_.front()) {
     w.cv.Wait();
   }
+	//这一个判断的意义是什么?w.done会变成true?
   if (w.done) {
     return w.status;
   }
 
   // May temporarily unlock and wait.
-  Status status = MakeRoomForWrite(my_batch == NULL);
-  uint64_t last_sequence = versions_->LastSequence();
-  Writer* last_writer = &w;
+  Status status = MakeRoomForWrite(my_batch == NULL);//判断是否有空间去写(无则创建新的mentable)
+  uint64_t last_sequence = versions_->LastSequence();//获取最后的序号
+  Writer* last_writer = &w;//将当前操作的writere设置为last_writer
   if (status.ok() && my_batch != NULL) {  // NULL batch is for compactions
-    WriteBatch* updates = BuildBatchGroup(&last_writer);
-    WriteBatchInternal::SetSequence(updates, last_sequence + 1);
-    last_sequence += WriteBatchInternal::Count(updates);
+    WriteBatch* updates = BuildBatchGroup(&last_writer);//将w组装成一个Writebatch
+    WriteBatchInternal::SetSequence(updates, last_sequence + 1);//WriteBatchInternal设置last_sequence
+    last_sequence += WriteBatchInternal::Count(updates);//version中的last_sequence需要加上update的数量(一次写入可能是多个操作)
 
     // Add to log and apply to memtable.  We can release the lock
     // during this phase since &w is currently responsible for logging
     // and protects against concurrent loggers and concurrent writes
     // into mem_.
+		// 写入log,写入Memtable,这个阶段可以释放锁,因为w现在拥有log,其他写日志的操作
+		// 和其他的写当前Memtable操作都会失败,同时log同步到磁盘的时间也较长,防止mutex_
+		// 被长期占用,所以释放(mutex_还负责其他的一些资源的同步操作)
     {
       mutex_.Unlock();
-      status = log_->AddRecord(WriteBatchInternal::Contents(updates));
+      status = log_->AddRecord(WriteBatchInternal::Contents(updates));//将update追加写入日志中
       bool sync_error = false;
       if (status.ok() && options.sync) {
-        status = logfile_->Sync();
+        status = logfile_->Sync();//log文件更新到磁盘(追加日志的方式是顺序写)
         if (!status.ok()) {
           sync_error = true;
         }
       }
       if (status.ok()) {
-        status = WriteBatchInternal::InsertInto(updates, mem_);
+        status = WriteBatchInternal::InsertInto(updates, mem_);//将update写入到memtable中
       }
       mutex_.Lock();
       if (sync_error) {
@@ -1210,7 +1216,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
     }
     if (updates == tmp_batch_) tmp_batch_->Clear();
 
-    versions_->SetLastSequence(last_sequence);
+    versions_->SetLastSequence(last_sequence);//version设置最新的last_sequence
   }
 
   while (true) {
@@ -1240,11 +1246,11 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
 //
 WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
   assert(!writers_.empty());
-  Writer* first = writers_.front();
+  Writer* first = writers_.front(); //取 Writer队列中的第一个(为什么不直接用 *last_writer)
   WriteBatch* result = first->batch;
   assert(result != NULL);
 
-  size_t size = WriteBatchInternal::ByteSize(first->batch);
+  size_t size = WriteBatchInternal::ByteSize(first->batch); //batch中rep_的大小
 
   // Allow the group to grow up to a maximum size, but if the
   // original write is small, limit the growth so we do not slow
@@ -1254,9 +1260,9 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
     max_size = size + (128<<10);
   }
 
-  *last_writer = first;
+  *last_writer = first; //正常情况应该是相等的,引入first的目的是什么呢?
   std::deque<Writer*>::iterator iter = writers_.begin();
-  ++iter;  // Advance past "first"
+  ++iter;  // Advance past "first" //跳过 "first"
   for (; iter != writers_.end(); ++iter) {
     Writer* w = *iter;
     if (w->sync && !first->sync) {
