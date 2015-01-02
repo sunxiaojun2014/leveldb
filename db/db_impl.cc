@@ -453,7 +453,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number,
   delete file;
   return status;
 }
-
+//level 0 的Table 的处理(key 重复)
 Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
                                 Version* base) {
   mutex_.AssertHeld();
@@ -1215,6 +1215,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
 
   while (true) {
     Writer* ready = writers_.front();
+    //这一段的意义是什么呢？ writers_.front()应该就是last_writer(即 &w)，什么情况下出现不相等呢
     writers_.pop_front();
     if (ready != &w) {
       ready->status = status;
@@ -1226,7 +1227,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
 
   // Notify new head of write queue
   if (!writers_.empty()) {
-    writers_.front()->cv.Signal();
+    writers_.front()->cv.Signal();//发出信号,让其他的进程可以从队列中取 writer
   }
 
   return status;
@@ -1234,6 +1235,9 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* my_batch) {
 
 // REQUIRES: Writer list must be non-empty
 // REQUIRES: First writer must have a non-NULL batch
+// BuildBatchGroup是leveldb内部把在队列中的多个writer
+// 的WtiteBatch合并成一个WriteBatch,一次性的写入磁盘(内存)
+//
 WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
   assert(!writers_.empty());
   Writer* first = writers_.front();
@@ -1270,11 +1274,11 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
       // Append to *result
       if (result == first->batch) {
         // Switch to temporary batch instead of disturbing caller's batch
-        result = tmp_batch_;
+        result = tmp_batch_; //空的WriteBatch
         assert(WriteBatchInternal::Count(result) == 0);
-        WriteBatchInternal::Append(result, first->batch);
+        WriteBatchInternal::Append(result, first->batch);//将first batch append 到result
       }
-      WriteBatchInternal::Append(result, w->batch);
+      WriteBatchInternal::Append(result, w->batch);//append w 的batch到result
     }
     *last_writer = w;
   }
@@ -1296,12 +1300,14 @@ Status DBImpl::MakeRoomForWrite(bool force) {
     } else if (
         allow_delay &&
         versions_->NumLevelFiles(0) >= config::kL0_SlowdownWritesTrigger) {
+      //如果 force是false,即不是强制要求写入,当level0的SSTable的数量超过8个时,达到Level设置的SSTable的上限时，此时需要延迟写1ms,这个延迟是针对所有的每个独立的"write".这样做的目的是让后台的compactor thread 能够获取到一些CPU的时间去合并SSTable(当然这个应该在writer thread和compactor thread在同一个CPU上才有意义)
       // We are getting close to hitting a hard limit on the number of
       // L0 files.  Rather than delaying a single write by several
       // seconds when we hit the hard limit, start delaying each
       // individual write by 1ms to reduce latency variance.  Also,
       // this delay hands over some CPU to the compaction thread in
       // case it is sharing the same core as the writer.
+      // 延迟写只能做一次,因为这回影响writer的性能
       mutex_.Unlock();
       env_->SleepForMicroseconds(1000);
       allow_delay = false;  // Do not delay a single write more than once
@@ -1313,14 +1319,18 @@ Status DBImpl::MakeRoomForWrite(bool force) {
     } else if (imm_ != NULL) {
       // We have filled up the current memtable, but the previous
       // one is still being compacted, so we wait.
+      // 正在使用的mem已经被写满了，但是之前正在被写满的mem还在合并，则阻塞写入并等待信号
       Log(options_.info_log, "Current memtable full; waiting...\n");
       bg_cv_.Wait();
     } else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger) {
       // There are too many level-0 files.
+      // level-0中的SSTable数量大于 12(触发停止写入),则阻塞写入并等待信号
       Log(options_.info_log, "Too many L0 files; waiting...\n");
       bg_cv_.Wait();
     } else {
       // Attempt to switch to a new memtable and trigger compaction of old
+      // 新建一个log文件
+      // 新建一个memtable
       assert(versions_->PrevLogNumber() == 0);
       uint64_t new_log_number = versions_->NewFileNumber();
       WritableFile* lfile = NULL;
@@ -1335,12 +1345,12 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       logfile_ = lfile;
       logfile_number_ = new_log_number;
       log_ = new log::Writer(lfile);
-      imm_ = mem_;
+      imm_ = mem_; //被写满的mem变成不可写
       has_imm_.Release_Store(imm_);
-      mem_ = new MemTable(internal_comparator_);
+      mem_ = new MemTable(internal_comparator_);//memtable需要指定compator
       mem_->Ref();
       force = false;   // Do not force another compaction if have room
-      MaybeScheduleCompaction();
+      MaybeScheduleCompaction();//这是需要调度compactor去做合并
     }
   }
   return s;
