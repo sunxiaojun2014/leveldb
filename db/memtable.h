@@ -21,6 +21,7 @@ class MemTable {
  public:
   // MemTables are reference counted.  The initial reference count
   // is zero and the caller must call Ref() at least once.
+  // MemTable 实现了引用计数.初始化为0,caller至少调用Ref()一次
   explicit MemTable(const InternalKeyComparator& comparator);
 
   // Increase reference count.
@@ -40,6 +41,7 @@ class MemTable {
   //
   // REQUIRES: external synchronization to prevent simultaneous
   // operations on the same MemTable.
+  // 返回Memtable近似使用的data的字节数,不是线程安全的
   size_t ApproximateMemoryUsage();
 
   // Return an iterator that yields the contents of the memtable.
@@ -48,11 +50,13 @@ class MemTable {
   // while the returned iterator is live.  The keys returned by this
   // iterator are internal keys encoded by AppendInternalKey in the
   // db/format.{h,cc} module.
+  // 返回一个迭代器,能够遍历memtable的内容
   Iterator* NewIterator();
 
   // Add an entry into memtable that maps key to value at the
   // specified sequence number and with the specified type.
   // Typically value will be empty if type==kTypeDeletion.
+  // 如果删除操作,则value的值为空
   void Add(SequenceNumber seq, ValueType type,
            const Slice& key,
            const Slice& value);
@@ -61,6 +65,8 @@ class MemTable {
   // If memtable contains a deletion for key, store a NotFound() error
   // in *status and return true.
   // Else, return false.
+  // 存在则将值存到value中,如果是一个不存在的key,返回给Status一个notfound的error
+  // 出现错误返回false
   bool Get(const LookupKey& key, std::string* value, Status* s);
 
  private:

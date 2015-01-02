@@ -3,6 +3,7 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 //
 // WriteBatch holds a collection of updates to apply atomically to a DB.
+// WriteBatch 是一个操作的集合(单个操作也是看成一个WriteBatch),可以实现原子性的功能
 //
 // The updates are applied in the order in which they are added
 // to the WriteBatch.  For example, the value of "key" will be "v3"
@@ -13,6 +14,8 @@
 //    batch.Put("key", "v2");
 //    batch.Put("key", "v3");
 //
+//多进程对同一个Batch调用常量方法，不需要外部的同步机制
+//但是如果是非常量方法，需要同步机制
 // Multiple threads can invoke const methods on a WriteBatch without
 // external synchronization, but if any of the threads may call a
 // non-const method, all threads accessing the same WriteBatch must use

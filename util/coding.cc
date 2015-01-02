@@ -6,11 +6,13 @@
 
 namespace leveldb {
 
+//将Buf编码成固定32位的字符串
 void EncodeFixed32(char* buf, uint32_t value) {
+    //如果是小端系统,则直接copy
   if (port::kLittleEndian) {
     memcpy(buf, &value, sizeof(value));
-  } else {
-    buf[0] = value & 0xff;
+  } else {//如果是大端系统,将value的值按照小端的方式赋值给buf
+    buf[0] = value & 0xff; //取value的低字节内容,后面以此类推
     buf[1] = (value >> 8) & 0xff;
     buf[2] = (value >> 16) & 0xff;
     buf[3] = (value >> 24) & 0xff;
@@ -32,6 +34,7 @@ void EncodeFixed64(char* buf, uint64_t value) {
   }
 }
 
+//在dst后追加一个固定长度为32位的buf
 void PutFixed32(std::string* dst, uint32_t value) {
   char buf[sizeof(value)];
   EncodeFixed32(buf, value);
@@ -44,9 +47,10 @@ void PutFixed64(std::string* dst, uint64_t value) {
   dst->append(buf, sizeof(buf));
 }
 
+//编码成变长的32的字符串
 char* EncodeVarint32(char* dst, uint32_t v) {
   // Operate on characters as unsigneds
-  unsigned char* ptr = reinterpret_cast<unsigned char*>(dst);
+  unsigned char* ptr = reinterpret_cast<unsigned char*>(dst);//?
   static const int B = 128;
   if (v < (1<<7)) {
     *(ptr++) = v;

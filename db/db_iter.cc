@@ -303,7 +303,7 @@ void DBIter::SeekToLast() {
   FindPrevUserEntry();
 }
 
-}  // anonymous namespace
+}  // anonymous namespace:匿名namespace
 
 Iterator* NewDBIterator(
     DBImpl* db,

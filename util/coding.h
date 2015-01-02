@@ -3,9 +3,9 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 //
 // Endian-neutral encoding:
-// * Fixed-length numbers are encoded with least-significant byte first
-// * In addition we support variable length "varint" encoding
-// * Strings are encoded prefixed by their length in varint format
+// * Fixed-length numbers are encoded with least-significant byte first       |leveldb封装了一些特定的format的格式
+// * In addition we support variable length "varint" encoding                 |支持变长的编码
+// * Strings are encoded prefixed by their length in varint format            |String被编码成前缀是他们的长度的格式
 
 #ifndef STORAGE_LEVELDB_UTIL_CODING_H_
 #define STORAGE_LEVELDB_UTIL_CODING_H_

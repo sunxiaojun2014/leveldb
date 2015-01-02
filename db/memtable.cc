@@ -11,10 +11,11 @@
 
 namespace leveldb {
 
+// 获取一个长度固定的Slice
 static Slice GetLengthPrefixedSlice(const char* data) {
   uint32_t len;
   const char* p = data;
-  p = GetVarint32Ptr(p, p + 5, &len);  // +5: we assume "p" is not corrupted
+  p = GetVarint32Ptr(p, p + 5, &len);  // +5: we assume "p" is not corrupted:假设p 是没有损坏的
   return Slice(p, len);
 }
 
@@ -79,6 +80,7 @@ Iterator* MemTable::NewIterator() {
   return new MemTableIterator(&table_);
 }
 
+//向MemTable中插入一条新数据
 void MemTable::Add(SequenceNumber s, ValueType type,
                    const Slice& key,
                    const Slice& value) {
@@ -89,26 +91,28 @@ void MemTable::Add(SequenceNumber s, ValueType type,
   //  value bytes  : char[value.size()]
   size_t key_size = key.size();
   size_t val_size = value.size();
-  size_t internal_key_size = key_size + 8;
+  size_t internal_key_size = key_size + 8; //internal_key_size是用来干嘛的
   const size_t encoded_len =
       VarintLength(internal_key_size) + internal_key_size +
       VarintLength(val_size) + val_size;
-  char* buf = arena_.Allocate(encoded_len);
+  char* buf = arena_.Allocate(encoded_len);//分配内存
   char* p = EncodeVarint32(buf, internal_key_size);
-  memcpy(p, key.data(), key_size);
+  memcpy(p, key.data(), key_size); //key写进buf中
   p += key_size;
-  EncodeFixed64(p, (s << 8) | type);
+  EncodeFixed64(p, (s << 8) | type);//type编码成固定的64位
   p += 8;
   p = EncodeVarint32(p, val_size);
   memcpy(p, value.data(), val_size);
   assert((p + val_size) - buf == encoded_len);
-  table_.Insert(buf);
+  table_.Insert(buf);//将format的buf写进skipList中
 }
 
+//从MemTable读取一条记录,写进value中,状态写进Status中
 bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
+    //LookupKey? 特定查询的key的类型?
   Slice memkey = key.memtable_key();
-  Table::Iterator iter(&table_);
-  iter.Seek(memkey.data());
+  Table::Iterator iter(&table_); //skipList的iterator
+  iter.Seek(memkey.data()); //跳到第一个 >= memKey.data 的位置
   if (iter.Valid()) {
     // entry format is:
     //    klength  varint32
@@ -119,7 +123,9 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
     // Check that it belongs to same user key.  We do not check the
     // sequence number since the Seek() call above should have skipped
     // all entries with overly large sequence numbers.
-    const char* entry = iter.key();
+    // check iter是否是属于同一个user key,不检查 sequence number?
+    // 后面的话不明白
+    const char* entry = iter.key(); //获取目前位置的 entry值
     uint32_t key_length;
     const char* key_ptr = GetVarint32Ptr(entry, entry+5, &key_length);
     if (comparator_.comparator.user_comparator()->Compare(
