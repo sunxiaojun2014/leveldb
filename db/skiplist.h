@@ -8,21 +8,21 @@
 // Thread safety
 // -------------
 //
-// Writes require external synchronization, most likely a mutex.
-// Reads require a guarantee that the SkipList will not be destroyed
-// while the read is in progress.  Apart from that, reads progress
-// without any internal locking or synchronization.
+// Writes require external synchronization, most likely a mutex.      |写需要外部的同步(如mutex)
+// Reads require a guarantee that the SkipList will not be destroyed  |读要求在读的过程中SkipList不能被销毁
+// while the read is in progress.  Apart from that, reads progress    |不需要任何的锁或者同步
+// without any internal locking or synchronization.                   |
 //
 // Invariants:
 //
-// (1) Allocated nodes are never deleted until the SkipList is
-// destroyed.  This is trivially guaranteed by the code since we
-// never delete any skip list nodes.
+// (1) Allocated nodes are never deleted until the SkipList is        |
+// destroyed.  This is trivially guaranteed by the code since we      |
+// never delete any skip list nodes.                                  |
 //
-// (2) The contents of a Node except for the next/prev pointers are
-// immutable after the Node has been linked into the SkipList.
-// Only Insert() modifies the list, and it is careful to initialize
-// a node and use release-stores to publish the nodes in one or
+// (2) The contents of a Node except for the next/prev pointers are   |
+// immutable after the Node has been linked into the SkipList.        |
+// Only Insert() modifies the list, and it is careful to initialize   |
+// a node and use release-stores to publish the nodes in one or       |
 // more lists.
 //
 // ... prev vs. next pointer ordering ...
@@ -55,7 +55,7 @@ class SkipList {
   // Returns true iff an entry that compares equal to key is in the list.
   bool Contains(const Key& key) const;
 
-  // Iteration over the contents of a skip list
+  // Iteration over the contents of a skip list,SkipList的迭代器
   class Iterator {
    public:
     // Initialize an iterator over the specified list.
@@ -95,13 +95,13 @@ class SkipList {
   };
 
  private:
-  enum { kMaxHeight = 12 };
+  enum { kMaxHeight = 12 }; //SkipList最大的高度
 
   // Immutable after construction
   Comparator const compare_;
   Arena* const arena_;    // Arena used for allocations of nodes
 
-  Node* const head_;
+  Node* const head_; //头结点
 
   // Modified only by Insert().  Read racily by readers, but stale
   // values are ok.

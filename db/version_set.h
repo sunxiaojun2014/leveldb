@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 //
-// The representation of a DBImpl consists of a set of Versions.  The
-// newest version is called "current".  Older versions may be kept
-// around to provide a consistent view to live iterators.
+// The representation of a DBImpl consists of a set of Versions.  The  |一个DBImple包括很多Version的集合
+// newest version is called "current".  Older versions may be kept     |最新的Version称为current
+// around to provide a consistent view to live iterators.              |老的version被保留去提供给存在的iterator提供一致性view
 //
-// Each Version keeps track of a set of Table files per level.  The
-// entire set of versions is maintained in a VersionSet.
+// Each Version keeps track of a set of Table files per level.  The    |每个Version保存了每个level的Table文件
+// entire set of versions is maintained in a VersionSet                |VersionSet是保存了Version的项目集合
 //
-// Version,VersionSet are thread-compatible, but require external
-// synchronization on all accesses.
+// Version,VersionSet are thread-compatible, but require external      |Version,VersionSet是线程兼容的，但是需要外部的
+// synchronization on all accesses                                     |同步
 
 #ifndef STORAGE_LEVELDB_DB_VERSION_SET_H_
 #define STORAGE_LEVELDB_DB_VERSION_SET_H_
