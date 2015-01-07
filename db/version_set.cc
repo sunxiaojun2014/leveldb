@@ -20,17 +20,18 @@
 
 namespace leveldb {
 
-static const int kTargetFileSize = 2 * 1048576;
+static const int kTargetFileSize = 2 * 1048576;//2MB
 
 // Maximum bytes of overlaps in grandparent (i.e., level+2) before we
 // stop building a single file in a level->level+1 compaction.
-static const int64_t kMaxGrandParentOverlapBytes = 10 * kTargetFileSize;
+static const int64_t kMaxGrandParentOverlapBytes = 10 * kTargetFileSize;//20MB
 
 // Maximum number of bytes in all compacted files.  We avoid expanding
 // the lower level file set of a compaction if it would make the
 // total compaction cover more than this many bytes.
-static const int64_t kExpandedCompactionByteSizeLimit = 25 * kTargetFileSize;
+static const int64_t kExpandedCompactionByteSizeLimit = 25 * kTargetFileSize;//50MB
 
+//level-0和level-1为20MB,此后每升一级,容量扩大10倍
 static double MaxBytesForLevel(int level) {
   // Note: the result for level zero is not really used since we set
   // the level-0 compaction threshold based on number of files.
@@ -46,6 +47,7 @@ static uint64_t MaxFileSizeForLevel(int level) {
   return kTargetFileSize;  // We could vary per level to reduce number of files?
 }
 
+//所有文件数量
 static int64_t TotalFileSize(const std::vector<FileMetaData*>& files) {
   int64_t sum = 0;
   for (size_t i = 0; i < files.size(); i++) {
@@ -73,7 +75,7 @@ Version::~Version() {
     }
   }
 }
-
+//二分查找key所在的files文件
 int FindFile(const InternalKeyComparator& icmp,
              const std::vector<FileMetaData*>& files,
              const Slice& key) {
@@ -109,6 +111,7 @@ static bool BeforeFile(const Comparator* ucmp,
           ucmp->Compare(*user_key, f->smallest.user_key()) < 0);
 }
 
+//是否有文件在key的范围内重叠
 bool SomeFileOverlapsRange(
     const InternalKeyComparator& icmp,
     bool disjoint_sorted_files,
@@ -175,7 +178,7 @@ class Version::LevelFileNumIterator : public Iterator {
   }
   virtual void Prev() {
     assert(Valid());
-    if (index_ == 0) {
+    if (index_ == 0) { //index_==0,没有Prev()
       index_ = flist_->size();  // Marks as invalid
     } else {
       index_--;
@@ -215,6 +218,7 @@ static Iterator* GetFileIterator(void* arg,
   }
 }
 
+//两个level之间连接的iterator
 Iterator* Version::NewConcatenatingIterator(const ReadOptions& options,
                                             int level) const {
   return NewTwoLevelIterator(

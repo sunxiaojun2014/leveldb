@@ -13,7 +13,7 @@
 #include "leveldb/iterator.h"
 
 namespace leveldb {
-
+//将iter指向的内容遍历写入文件(ssTable)
 Status BuildTable(const std::string& dbname,
                   Env* env,
                   const Options& options,

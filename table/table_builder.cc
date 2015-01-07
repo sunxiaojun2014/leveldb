@@ -39,6 +39,7 @@ struct TableBuilder::Rep {
   // blocks.
   //
   // Invariant: r->pending_index_entry is true only if data_block is empty.
+  // pending(未决定的)
   bool pending_index_entry;
   BlockHandle pending_handle;  // Handle to add to index block
 
@@ -89,6 +90,7 @@ Status TableBuilder::ChangeOptions(const Options& options) {
   return Status::OK();
 }
 
+//向一个SSTable中插入一条数据
 void TableBuilder::Add(const Slice& key, const Slice& value) {
   Rep* r = rep_;
   assert(!r->closed);
