@@ -26,21 +26,26 @@ Writer::~Writer() {
 
 Status Writer::AddRecord(const Slice& slice) {
   const char* ptr = slice.data();
-  size_t left = slice.size();
+  size_t left = slice.size();//片段大小
 
   // Fragment the record if necessary and emit it.  Note that if slice
   // is empty, we still want to iterate once to emit a single
   // zero-length record
+	// log在物理上会被分成大小为32KB的block(kHeaderSize=32678 bytes),每次读取以一个Block为单位读取.
+	//每条记录包括两部分:header(CRC32:4bit,Length:2bit,Type:1bit),Content
+	//header的长度是kHeaderSize(7 bytes).
   Status s;
   bool begin = true;
   do {
     const int leftover = kBlockSize - block_offset_;
     assert(leftover >= 0);
+		//block中剩余的空间小于KHeaderSize,需要写到下一个block中
     if (leftover < kHeaderSize) {
       // Switch to a new block
       if (leftover > 0) {
         // Fill the trailer (literal below relies on kHeaderSize being 7)
         assert(kHeaderSize == 7);
+				//如果剩余的空间小于kHeaderSize的大小,则填充0
         dest_->Append(Slice("\x00\x00\x00\x00\x00\x00", leftover));
       }
       block_offset_ = 0;
@@ -49,10 +54,10 @@ Status Writer::AddRecord(const Slice& slice) {
     // Invariant: we never leave < kHeaderSize bytes in a block.
     assert(kBlockSize - block_offset_ - kHeaderSize >= 0);
 
-    const size_t avail = kBlockSize - block_offset_ - kHeaderSize;
-    const size_t fragment_length = (left < avail) ? left : avail;
+    const size_t avail = kBlockSize - block_offset_ - kHeaderSize;//除去header后剩余的可以用的空间
+    const size_t fragment_length = (left < avail) ? left : avail; 
 
-    RecordType type;
+    RecordType type;//四种不同的类型
     const bool end = (left == fragment_length);
     if (begin && end) {
       type = kFullType;
@@ -64,7 +69,7 @@ Status Writer::AddRecord(const Slice& slice) {
       type = kMiddleType;
     }
 
-    s = EmitPhysicalRecord(type, ptr, fragment_length);
+    s = EmitPhysicalRecord(type, ptr, fragment_length);//写入可以fragment_length长度的内容
     ptr += fragment_length;
     left -= fragment_length;
     begin = false;
